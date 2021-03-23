@@ -1,0 +1,13 @@
+[package]
+name = "gendata"
+version = "0.1.0"
+authors = ["doraneko94 <shuntaro94@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ndarray = "0.14.0"
+num-traits = "0.2.14"
+rand = "0.8.1"
+iseqnmf = { path="../iseqnmf" }
