@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "iseq",
+    "iseq-linalg",
+    "gendata",
+]
