@@ -1,7 +1,11 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub mod assert;
+pub mod corr;
+pub mod cost;
+pub mod error;
+pub mod heap;
+pub mod lambda;
+pub mod random;
+pub mod stats;
+pub mod traits;
+pub mod update;
+pub mod utils;

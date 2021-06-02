@@ -7,3 +7,18 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+chrono = "0.4.19"
+csv = "1.1.5"
+mpi = "=0.5.1"
+ndarray = "0.14.0"
+num-traits = "0.2.14"
+rand = "0.8.1"
+iseq-linalg = { "path" = "../iseq-linalg" }
+
+[[bin]]
+name = "iseq"
+path = "src/main.rs"
+
+[[bin]]
+name = "iseq_mpi"
+path = "src/mpi.rs"
