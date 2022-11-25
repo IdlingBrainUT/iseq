@@ -1,12 +1,13 @@
-use mpi::traits::*;
+// use mpi::traits::*;
 
 use iseq::args::*;
-use iseq::env_mpi::*;
+// use iseq::env_mpi::*;
 use iseq::result::*;
 use iseq::io::*;
 use iseq::time::*;
 
 fn main() {
+    /*
     let universe = mpi::initialize().unwrap();
     let world = universe.world();
     let rank = world.rank();
@@ -35,4 +36,5 @@ fn main() {
     } else {
         let _ = env.run_once(args.lambda_once, &world);
     }
+    */
 }

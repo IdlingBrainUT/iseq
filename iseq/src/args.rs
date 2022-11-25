@@ -29,43 +29,20 @@ pub struct Args<T: FloatISeq> {
     /// (default) 50
     pub l: usize,
 
+    /// -mi: The maximum number of times the update calculation can be done.
+    /// 
+    /// (default) 100
+    pub n_iter: [usize; 4],
+
     /// -zth: threshold of non-zero values.
     /// 
     /// (default) 0.001
     pub z_th: T,
 
-    /// -mi: The maximum number of times the update calculation can be done.
-    /// 
-    /// (default) 30
-    pub max_iter: usize,
-
-    /// -ipl: How many calculations are performed for the same value of lambda.
-    /// 
-    /// (defalut) 5
-    pub iter_per_lambda: usize,
-
     /// -tl: To what extent do you ignore the difference between the numbers below.
     /// 
-    /// (default) negative infinity
+    /// (default) 1e-7
     pub tolerance: T,
-
-    /// -ls: The minimum value for narrowing lambda.
-    /// 
-    /// [NOTE] This value must be set as a logarithm with base 10.
-    /// 
-    /// [EXAMPLE] If you want to set 0.01 -> -ls -2
-    /// 
-    /// (default) -6
-    pub lambda_start: T,
-
-    /// -le: The maximum value for narrowing lambda.
-    /// 
-    /// [NOTE] This value must be set as a logarithm with base 10.
-    /// 
-    /// [EXAMPLE] If you want to set 1.0 -> -le 0
-    /// 
-    /// (default) 0
-    pub lambda_end: T,
 
     /// -rs: Seed values for the random number generator.
     /// 
@@ -73,45 +50,18 @@ pub struct Args<T: FloatISeq> {
     /// 
     /// If not, this program will use default seed 0, and will output the same result for the same input every time.
     /// 
-    /// (default) 0
-    pub random_seed: u32,
+    /// (default) None
+    pub random_seed: Option<u32>,
 
-    /// -lo: If this parameter is not infinity, do not search for lambda, and only run one seqNMF with this lambda value.
+    /// -cr: Significance level for integrating similar sequences.
     /// 
-    /// [NOTE] If this parameter is not infinity, the value of lambda_start and lambda_end will be ignored.
-    /// 
-    /// [NOTE] Please specify as a real number.
-    /// 
-    /// (default) infinity
-    pub lambda_once: T,
+    /// (defalut) 0.3
+    pub comp_rate: T,
 
-    /// -nu: The number of null-neurons.
+    /// -cm
     /// 
-    /// (default) 100
-    pub n_null: usize,
-
-    /// -mp: Path of the csv file of M.
-    /// 
-    /// [NOTE] The shape of csv should be (T, N) -> Same size as X.
-    /// 
-    /// (defalut) None
-    pub maskpath: Option<String>,
-
-    /// -ssi: Multiplier for standard deviation of null-neurons' activity 
-    /// to set significance level.
-    /// 
-    /// (default) 5.0
-    pub sd_significant: T,
-
-    /// -nsi: The minimum number of significant cells contained in significant sequences.
-    /// 
-    /// (defalut) 20
-    pub n_significant: usize,
-
-    /// -pin: Significance level for integrating similar sequences.
-    /// 
-    /// (defalut) 0.05
-    pub p_integrate: T,
+    /// (default) 0.3
+    pub corr_max: T,
 
     /// -v: Output the calculation process.
     /// 
@@ -135,18 +85,11 @@ impl<T: FloatISeq> Args<T> {
         let mut k = 20;
         let mut l = 50;
         let mut z_th = T::from(0.001).unwrap();
-        let mut max_iter = 30;
-        let mut iter_per_lambda = 5;
-        let mut tolerance = T::neg_infinity();
-        let mut ls = -6;
-        let mut le = 0;
+        let mut n_iter = [30, 30, 10, 30];
+        let mut tolerance = T::from(1e-7).unwrap();
         let mut random_seed = 0;
-        let mut lambda_once = T::infinity();
-        let mut n_null = 100;
-        let mut maskpath = None;
-        let mut sd_significant = T::from_usize(5).unwrap();
-        let mut n_significant = 20;
-        let mut p_integrate = T::from_f32(0.05).unwrap();
+        let mut comp_rate = 0.3;
+        let mut corr_max = 0.3;
         let mut verbose = false;
         let mut error_save = false;
 
@@ -168,18 +111,20 @@ impl<T: FloatISeq> Args<T> {
                 "-k" => { k = item.parse().ok().unwrap(); }
                 "-l" => { l = item.parse().ok().unwrap(); }
                 "-zth" => { z_th = item.parse().ok().unwrap(); }
-                "-mi" => { max_iter = item.parse().ok().unwrap(); }
-                "-ipl" => { iter_per_lambda = item.parse().ok().unwrap(); }
+                "-ni" => {
+                    let n0: usize = item.parse().ok().unwrap();
+                    let n1: usize = (&args[i+2]).to_owned().parse().ok().unwrap();
+                    let n2: usize = (&args[i+3]).to_owned().parse().ok().unwrap();
+                    let n3: usize = (&args[i+4]).to_owned().parse().ok().unwrap();
+                    i += 3;
+                }
                 "-tl" => { tolerance = item.parse().ok().unwrap(); }
-                "-ls" => { ls = item.parse().ok().unwrap(); }
-                "-le" => { le = item.parse().ok().unwrap(); }
-                "-rs" => { random_seed = item.parse().ok().unwrap(); }
-                "-lo" => { lambda_once = item.parse().ok().unwrap(); }
-                "-nu" => { n_null = item.parse().ok().unwrap(); }
-                "-mp" => { maskpath = Some(item.to_owned()); }
-                "-ssi" => { sd_significant = item.parse().ok().unwrap(); }
-                "-nsi" => { n_significant = item.parse().ok().unwrap(); }
-                "-pin" => { p_integrate = item.parse().ok().unwrap(); }
+                "-rs" => {
+                    let seed: u32 = item.parse().ok().unwrap();
+                    random_seed = Some(seed);
+                }
+                "-cr" => { comp_rate = item.parse().ok().unwrap(); }
+                "-cm" => { corr_max = item.parse().ok().unwrap(); }
                 "-v" => { 
                     verbose = match &item as &str {
                         "true" => true,
@@ -199,14 +144,10 @@ impl<T: FloatISeq> Args<T> {
             i += 2;
         }
 
-        let lambda_start = ten.powi(ls);
-        let lambda_end = ten.powi(le);
-
         Self {
-            filepath, header, k, l, z_th, max_iter, iter_per_lambda,
-            tolerance, lambda_start, lambda_end, random_seed,
-            lambda_once, n_null, maskpath,
-            sd_significant, n_significant, p_integrate,
+            filepath, header, k, l, z_th, n_iter, 
+            tolerance, random_seed,
+            comp_rate, corr_max,
             verbose, error_save
         }
     }
@@ -219,21 +160,11 @@ impl<T: FloatISeq> Args<T> {
         println!("k: {}", self.k);
         println!("l: {}", self.l);
         println!("non-zero value threshold: {}", self.z_th);
-        println!("max_iter: {}", self.max_iter);
-        println!("iter_per_lambda: {}", self.iter_per_lambda);
+        println!("n_iter: {:?}", self.n_iter);
         println!("tolerance: {}", self.tolerance);
-        println!("lambda_start: {}", self.lambda_start);
-        println!("lambda_end: {}", self.lambda_end);
-        println!("random_seed: {}", self.random_seed);
-        println!("lambda_once: {}", self.lambda_once);
-        println!("number of null neurons: {}", self.n_null);
-        match self.maskpath.as_ref() {
-            Some(p) => println!("maskpath: {}", p),
-            None => println!("maskpath: None"),
-        }
-        println!("significance level: {}SD", self.sd_significant);
-        println!("minimum number of sig-cell: {}", self.n_significant);
-        println!("integration level: {}", self.p_integrate);
+        println!("random seed: {:?}", self.random_seed);
+        println!("compression rate: {}", self.comp_rate);
+        println!("maximum correlation: {}", self.corr_max);
         println!("verbose: {}", self.verbose);
         println!("error save: {}", self.error_save);
         println!("=== params  end  ===");

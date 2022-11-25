@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 chrono = "0.4.19"
 csv = "1.1.5"
-mpi = "=0.5.1"
+# mpi = "=0.5.1"
 ndarray = "0.14.0"
 num-traits = "0.2.14"
 rand = "0.8.1"

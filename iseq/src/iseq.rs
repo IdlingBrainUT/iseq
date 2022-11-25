@@ -22,43 +22,29 @@ pub struct ISeq<T: FloatISeq> {
     /// Data matrix X.
     /// 
     /// [SHAPE] (N, T)
-    pub x: Array2<T>,
+    pub v: Array2<T>,
+    ///
+    pub v_max: T,
 
     /// Pattern matrix W.
     /// 
     /// [SHAPE] (N, K, L)
     pub w: Array3<T>,
 
-    /// Occurence matrix H.
-    /// 
-    /// L-1 longer than X forward.
+    /// Intensity matrix H.
     /// 
     /// [SHAPE] (K, T+L-1)
     pub h: Array2<T>,
 
-    /// Mask matrix M.
     /// 
-    /// [SHAPE] (N, T)
-    pub mask: Option<Array2<T>>,
-
-    /// Transpose convolution calculated from W and X.
+    pub w_lim: T,
     /// 
-    /// The tail L-1 is missing.
-    /// 
-    /// [SHAPE] (K, T-L+1)
-    pub wtx: Array2<T>,
+    pub h_lim: T,
 
     /// Reconstructed data matrix, calculated from W and H.
     /// 
     /// [SHAPE] (N, T)
-    pub x_hat: Array2<T>,
-
-    /// Smoothed H^T in the range of -(L-1) ~ L-1.
-    /// 
-    /// The head and tail L-1 is missing.
-    /// 
-    /// [SHAPE] (K,T-L+1)
-    pub sht: Array2<T>,
+    pub u: Array2<T>,
 
     /// The number of neurons (N).
     pub n: usize,
@@ -69,38 +55,23 @@ pub struct ISeq<T: FloatISeq> {
     /// The length of data (T).
     pub t: usize,
 
+    /// 
+    /// 
+    /// (default) 100
+    pub max_iter: usize,
+
+    /// To what extent do you ignore the difference between the numbers below.
+    pub tolerance: T,
     /// Zero threshold.
     /// 
     /// Values less than z_th are considered as zero.
     pub z_th: T,
 
-    /// The maximum number of times the update calculation can be done.
-    pub max_iter: usize,
-    /// Lambda value for "Smoothed cross-factor orthogonality (x-ortho penalty)".
-    pub lambda: T,
     /// Seed values for the random number generator.
-    pub random_seed: u32,
+    pub random_seed: Option<u32>,
 
     /// Reconstruction + X-ortho cost at each iteration.
     pub cost: Array1<T>,
-    /// Reconstruction cost at each iteration.
-    pub recon: Array1<T>,
-    /// X-ortho cost at each iteration.
-    pub xortho: Array1<T>,
-    /// To what extent do you ignore the difference between the numbers below.
-    pub tolerance: T,
-
-    /// Small number
-    pub epsilon: T,
-
-    /// Number of null-neurons.
-    pub n_null: usize,
-    /// Significance level.
-    pub sd_significant: T,
-    /// Minimum number of sig-cell in sig-sequence.
-    pub n_significant: usize,
-    /// Integration level.
-    pub p_integrate: T,
 
     /// Output the calculation process.
     pub verbose: bool,
@@ -114,47 +85,33 @@ where
     /// 
     /// You have to do init() before calculation.
     pub fn new(
-        filepath: &str, header: bool, k: usize, l: usize, z_th: T, 
-        max_iter: usize, tolerance: T, n_null: usize, 
-        sd_significant: T, n_significant: usize, p_integrate: T, 
+        v: &Array2<T>, k: usize, l: usize,
+        max_iter: usize, z_th: T, tolerance: T, 
+        h_lim: T, w_lim: T, random_seed: Option<u32>
         verbose: bool,
     ) -> Self {
-        let x = match read_csv_to_arr(filepath, header) {
-            Ok(e) => e,
-            Err(_) => panic!("File read error!"),
-        };
+        let mut v_max = 0.0;
+        Zip::from(v)
+            .for_each(|&vi| if vi > v_max { v_max = vi; });
         let (n, t) = (x.shape()[0], x.shape()[1]);
 
         let w: Array3<T> = Array3::zeros((n, k, l));
         let h: Array2<T> = Array2::zeros((k, t+l-1));
-
-        let wtx: Array2<T> = Array2::zeros((k, t+1-l));
-        let x_hat: Array2<T> = Array2::zeros((n, t));
-        let sht: Array2<T> = Array2::zeros((t+1-l, k));
-
-        let mask = None;
+        let u: Array2<T> = Array2::zeros((n, t));
         
         let cost = Array1::zeros(max_iter + 1);
-        let recon = cost.clone();
-        let xortho = cost.clone();
-
-        let lambda = T::zero();
-        let random_seed = 0;
-        let epsilon = T::from(1e-7).unwrap();
 
         Self { 
-            x, w, h, mask, wtx, x_hat, sht, 
-            n, k, l, t, z_th, max_iter, lambda, 
-            random_seed, cost, recon, xortho, tolerance, epsilon, 
-            n_null, sd_significant, n_significant, p_integrate, 
-            verbose
+            v, v_max, w, h, w_lim, h_lim, u,
+            n, k, l, t, max_iter, tolerance, z_th,
+            random_seed, cost, verbose
         }
     }
 
     /// Create a iSeqNMF struct from args.
-    pub fn from_args(a: &Args<T>) -> Self {
+    pub fn from_args(v: &Array<T>, a: &Args<T>) -> Self {
         Self::new(
-            &a.filepath, a.header, a.k, a.l, a.z_th, 
+            v, a.k, a.l, a.z_th, 
             a.max_iter, a.tolerance, a.n_null, 
             a.sd_significant, a.n_significant, a.p_integrate, 
             a.verbose,
